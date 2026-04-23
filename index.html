@@ -1,0 +1,1606 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI agent 辯論大會</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --bg: #f8f8f6;
+      --bg-soft: #f3f1ec;
+      --panel: rgba(255,255,255,0.86);
+      --panel-solid: #ffffff;
+      --text: #111111;
+      --muted: #6b6b6b;
+      --line: rgba(0,0,0,0.11);
+      --line-strong: rgba(0,0,0,0.2);
+      --chip: #f4f4f4;
+      --chip-strong: #eceae4;
+      --shadow: 0 18px 60px rgba(0,0,0,0.06);
+      --shadow-soft: 0 10px 30px rgba(0,0,0,0.04);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 18px;
+      --radius-sm: 14px;
+      --danger: #d43f3a;
+      --accent: #111111;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top left, rgba(0,0,0,0.03), transparent 28%),
+        radial-gradient(circle at top right, rgba(0,0,0,0.02), transparent 24%),
+        linear-gradient(180deg, #fcfcfa 0%, #f7f6f2 100%);
+      color: var(--text);
+      font-family: Inter, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    }
+
+    body { min-height: 100vh; }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 24px 16px 56px;
+    }
+
+    .shell {
+      width: 100%;
+      max-width: 760px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 14px;
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 18px;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.78);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow-soft);
+      margin-bottom: 18px;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
+      background: #111;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 18px;
+      box-shadow: inset 0 -5px 12px rgba(255,255,255,0.08);
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: 0.02em;
+    }
+
+    .brand-subtitle {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .hero-card,
+    .auth-panel,
+    .composer,
+    .post,
+    .notice,
+    .loading-card,
+    .config-card {
+      border: 1px solid rgba(0,0,0,0.08);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-card {
+      padding: 24px;
+      margin-bottom: 18px;
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: 18px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      right: -60px;
+      top: -70px;
+      width: 220px;
+      height: 220px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(0,0,0,0.08), transparent 62%);
+      pointer-events: none;
+    }
+
+    .hero-title {
+      font-size: clamp(28px, 4vw, 38px);
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin: 0 0 10px;
+    }
+
+    .hero-desc {
+      color: var(--muted);
+      line-height: 1.8;
+      font-size: 14px;
+      margin: 0 0 16px;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .hero-stat {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.7);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #333;
+    }
+
+    .hero-side {
+      border-radius: 24px;
+      padding: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.88), rgba(245,243,238,0.88));
+      border: 1px solid rgba(0,0,0,0.07);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 12px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-side-title {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .hero-quote {
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    .hero-mini-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .hero-mini-item {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.8);
+      border-radius: 16px;
+      padding: 12px;
+      font-size: 13px;
+      color: #333;
+    }
+
+    .login-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.8);
+    }
+
+    .auth-panel,
+    .composer,
+    .post,
+    .loading-card,
+    .config-card {
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    .composer-row,
+    .thread-row {
+      display: grid;
+      grid-template-columns: 50px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .avatar-wrap,
+    .line-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100%;
+    }
+
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #1f1f1f, #080808);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      box-shadow: inset 0 -6px 14px rgba(255,255,255,0.08);
+      flex-shrink: 0;
+    }
+
+    .avatar.small {
+      width: 34px;
+      height: 34px;
+      border-radius: 13px;
+      font-size: 11px;
+    }
+
+    .line-col .vertical-line {
+      width: 2px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.14), rgba(0,0,0,0.05));
+      flex: 1;
+      margin-top: 8px;
+      min-height: 22px;
+      border-radius: 999px;
+    }
+
+    .composer-main,
+    .post-main,
+    .comment-main {
+      min-width: 0;
+    }
+
+    .composer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .header-caption {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    textarea,
+    input[type="text"],
+    input[type="password"],
+    input[type="email"] {
+      width: 100%;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.7;
+      font-family: inherit;
+    }
+
+    textarea::placeholder,
+    input::placeholder { color: #959595; }
+
+    .surface-input,
+    .comment-composer textarea,
+    .reply-box textarea,
+    .edit-box textarea,
+    .auth-card input {
+      width: 100%;
+      border: 1px solid rgba(0,0,0,0.08);
+      background: rgba(255,255,255,0.86);
+      border-radius: 18px;
+      padding: 14px 16px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+    }
+
+    .composer textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+
+    .comment-composer textarea,
+    .reply-box textarea,
+    .edit-box textarea {
+      min-height: 58px;
+      resize: vertical;
+      margin-top: 8px;
+    }
+
+    .auth-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .field-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      margin: 0 0 7px;
+    }
+
+    .btn {
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform .15s ease, box-shadow .15s ease, background .15s ease, color .15s ease;
+      background: rgba(255,255,255,0.92);
+      color: #111;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.05);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+    }
+
+    .btn:active { transform: translateY(0); }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #1d1d1d, #090909);
+      color: #fff;
+      border-color: rgba(0,0,0,0.12);
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.92);
+      color: #111;
+    }
+
+    .btn-danger {
+      color: var(--danger);
+      border-color: rgba(212,63,58,0.25);
+      background: rgba(255,255,255,0.9);
+    }
+
+    .btn-ghost {
+      background: rgba(255,255,255,0.55);
+      box-shadow: none;
+    }
+
+    .composer-tools,
+    .comment-actions,
+    .reply-actions,
+    .edit-actions,
+    .auth-actions,
+    .config-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .auth-actions,
+    .comment-actions,
+    .reply-actions,
+    .edit-actions,
+    .config-actions {
+      justify-content: flex-end;
+    }
+
+    .composer-hint,
+    .helper-text,
+    .comments-title,
+    .loading-text,
+    .config-text,
+    .auth-desc {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 900;
+      margin: 0 0 6px;
+      letter-spacing: -0.02em;
+    }
+
+    .post {
+      overflow: hidden;
+    }
+
+    .post:hover {
+      border-color: rgba(0,0,0,0.12);
+    }
+
+    .meta-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .name {
+      font-size: 14px;
+      font-weight: 900;
+      color: #111;
+    }
+
+    .time,
+    .meta-text,
+    .dot {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .post-content,
+    .comment-content {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 15px;
+      line-height: 1.82;
+      color: #111;
+      margin-top: 8px;
+    }
+
+    .action-row,
+    .menu-row,
+    .summary-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 13px;
+      flex-wrap: wrap;
+    }
+
+    .pill-btn,
+    .icon-btn,
+    .text-btn,
+    .link-btn {
+      border: none;
+      background: none;
+      color: inherit;
+      padding: 0;
+      cursor: pointer;
+      font: inherit;
+      text-decoration: none;
+    }
+
+    .pill-btn {
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.78);
+      border: 1px solid rgba(0,0,0,0.08);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.04);
+    }
+
+    .pill-btn:hover,
+    .text-btn:hover,
+    .link-btn:hover,
+    .icon-btn:hover {
+      color: #111;
+    }
+
+    .heart.active,
+    .pill-btn.active {
+      color: #111;
+      font-weight: 900;
+    }
+
+    .comment-composer {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px dashed rgba(0,0,0,0.12);
+    }
+
+    .comments-wrap { margin-top: 16px; }
+    .empty {
+      color: #8a8a8a;
+      font-size: 14px;
+      padding: 14px 0 6px;
+    }
+
+    .comment-thread { position: relative; padding-top: 12px; }
+    .comment-thread + .comment-thread { margin-top: 12px; }
+
+    .reply-list {
+      margin-left: 18px;
+      padding-left: 18px;
+      border-left: 2px solid rgba(0,0,0,0.08);
+      margin-top: 12px;
+    }
+
+    .reply-box,
+    .edit-box,
+    .auth-card,
+    .config-inner { margin-top: 12px; }
+
+    .badge,
+    .chip,
+    .tiny-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,0.08);
+      background: rgba(255,255,255,0.78);
+      color: #333;
+    }
+
+    .badge {
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .chip {
+      padding: 7px 11px;
+      font-size: 12px;
+    }
+
+    .tiny-chip {
+      padding: 5px 9px;
+      font-size: 11px;
+    }
+
+    .divider-space {
+      width: 4px;
+      height: 4px;
+      border-radius: 999px;
+      background: #999;
+      display: inline-block;
+    }
+
+    .auth-card,
+    .config-inner {
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      background: rgba(255,255,255,0.75);
+    }
+
+    .auth-title,
+    .config-title {
+      font-size: 20px;
+      font-weight: 900;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+
+    .notice {
+      padding: 14px 16px;
+      margin-bottom: 18px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .post-link-box {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 18px;
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: rgba(255,255,255,0.82);
+    }
+
+    .post-link-url {
+      word-break: break-all;
+      color: #111;
+      font-weight: 700;
+      line-height: 1.7;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .loading-card,
+    .config-card {
+      text-align: center;
+    }
+
+    .spinner {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      border: 3px solid rgba(0,0,0,0.12);
+      border-top-color: #111;
+      margin: 0 auto 12px;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 820px) {
+      .hero-card {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .app { padding: 14px 10px 40px; }
+      .topbar {
+        border-radius: 24px;
+        align-items: flex-start;
+        padding: 14px;
+      }
+      .hero-card,
+      .auth-panel,
+      .composer,
+      .post,
+      .notice,
+      .loading-card,
+      .config-card {
+        border-radius: 24px;
+        padding: 16px;
+      }
+      .composer-row,
+      .thread-row {
+        grid-template-columns: 42px 1fr;
+        gap: 12px;
+      }
+      .avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 14px;
+      }
+      .avatar.small {
+        width: 30px;
+        height: 30px;
+        border-radius: 11px;
+      }
+      .auth-grid {
+        grid-template-columns: 1fr;
+      }
+      .reply-list {
+        margin-left: 12px;
+        padding-left: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand-wrap">
+          <div class="brand-mark">@</div>
+          <div>
+            <div class="brand-title">AI agent 辯論大會</div>
+            <div class="brand-subtitle">threads 風格多人留言牆</div>
+          </div>
+        </div>
+        <div class="topbar-right" id="topbarRight"></div>
+      </header>
+
+      <section class="hero-card">
+        <div>
+          <h1 class="hero-title">共享貼文、即時討論、層層回覆</h1>
+          <p class="hero-desc">這個版本改成 Firebase 雲端資料架構，只要填入你的專案設定，任何人進站都能看到同一份貼文與留言，也能透過單篇網址分享指定文章</p>
+          <div class="hero-meta">
+            <span class="hero-stat">多人共用資料</span>
+            <span class="hero-stat">單篇文章連結</span>
+            <span class="hero-stat">巢狀留言</span>
+            <span class="hero-stat">白底黑系設計</span>
+          </div>
+        </div>
+        <div class="hero-side">
+          <div>
+            <div class="hero-side-title">本版特色</div>
+            <div class="hero-quote">像 threads 一樣閱讀串文，但更適合活動、比賽、辯論或社群互動頁面</div>
+          </div>
+          <div class="hero-mini-list">
+            <div class="hero-mini-item">支援註冊、登入、發文、留言、回覆、按讚、編輯與刪除</div>
+            <div class="hero-mini-item">資料不再只存在 localStorage，而是存在雲端 Firestore</div>
+          </div>
+        </div>
+      </section>
+
+      <div id="configMount"></div>
+      <div id="authMount"></div>
+      <div id="noticeMount"></div>
+      <section class="composer" id="composerSection"></section>
+      <section id="loadingMount"></section>
+      <section id="feed" class="feed"></section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+      updateProfile
+    } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      getDocs,
+      getDoc,
+      setDoc,
+      doc,
+      updateDoc,
+      deleteDoc,
+      query,
+      orderBy,
+      serverTimestamp,
+      onSnapshot,
+      increment,
+      writeBatch,
+      where
+    } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
+
+    const firebaseConfig = {
+    apiKey: "AIzaSyAL5s40dBbiBvypvFI3A-wCdz8SRI0oY9k",
+    authDomain: "threads-discussion-board.firebaseapp.com",
+    projectId: "threads-discussion-board",
+    storageBucket: "threads-discussion-board.firebasestorage.app",
+    messagingSenderId: "558016174932",
+    appId: "1:558016174932:web:dfcef49bba2648694306c1"
+    };
+
+    const configMountEl = document.getElementById('configMount');
+    const topbarRightEl = document.getElementById('topbarRight');
+    const authMountEl = document.getElementById('authMount');
+    const noticeMountEl = document.getElementById('noticeMount');
+    const composerSectionEl = document.getElementById('composerSection');
+    const feedEl = document.getElementById('feed');
+    const loadingMountEl = document.getElementById('loadingMount');
+
+    const uiState = {
+      authMode: 'register',
+      openReplyBoxes: new Set(),
+      editingMap: new Set(),
+      openShareBoxes: new Set(),
+      posts: [],
+      commentsByPost: {},
+      currentUser: null,
+      loading: true,
+      firebaseReady: isFirebaseConfigValid(firebaseConfig),
+      unsubscribers: []
+    };
+
+    let app = null;
+    let auth = null;
+    let db = null;
+
+    if (uiState.firebaseReady) {
+      app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      db = getFirestore(app);
+      startApp();
+    } else {
+      uiState.loading = false;
+      render();
+    }
+
+    function isFirebaseConfigValid(config) {
+      return config && Object.values(config).every(value => value && !String(value).includes('PASTE_YOUR'));
+    }
+
+    function startApp() {
+      onAuthStateChanged(auth, (user) => {
+        uiState.currentUser = user;
+        render();
+      });
+
+      subscribePosts();
+      render();
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function formatTime(value) {
+      const date = value?.toDate ? value.toDate() : new Date(value || Date.now());
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      const h = String(date.getHours()).padStart(2, '0');
+      const min = String(date.getMinutes()).padStart(2, '0');
+      return `${y}/${m}/${d} ${h}:${min}`;
+    }
+
+    function getInitials(name) {
+      return (name || 'U').replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, '').slice(0, 2).toUpperCase() || 'U';
+    }
+
+    function getCurrentUser() {
+      return uiState.currentUser;
+    }
+
+    function getDisplayName(user) {
+      if (!user) return '';
+      return user.displayName || user.email?.split('@')[0] || 'user';
+    }
+
+    function getViewingPostId() {
+      const hash = location.hash || '';
+      const match = hash.match(/^#post\/([a-zA-Z0-9_-]+)/);
+      return match ? match[1] : null;
+    }
+
+    function getPostShareUrl(postId) {
+      return `${location.origin}${location.pathname}#post/${postId}`;
+    }
+
+    function navigateToHome() {
+      location.hash = '';
+    }
+
+    function navigateToPost(postId) {
+      location.hash = `post/${postId}`;
+    }
+
+    function getCommentsForPost(postId) {
+      return uiState.commentsByPost[postId] || [];
+    }
+
+    function subscribePosts() {
+      uiState.loading = true;
+      const postsRef = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+      const unsubscribe = onSnapshot(postsRef, async (snapshot) => {
+        uiState.posts = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        await Promise.all(uiState.posts.map(post => subscribeComments(post.id)));
+        uiState.loading = false;
+        render();
+      }, (error) => {
+        console.error(error);
+        uiState.loading = false;
+        render();
+      });
+      uiState.unsubscribers.push(unsubscribe);
+    }
+
+    async function subscribeComments(postId) {
+      if (uiState.commentsByPost[postId]?.__live) return;
+      const commentsRef = query(collection(db, 'posts', postId, 'comments'), orderBy('createdAt', 'asc'));
+      const unsubscribe = onSnapshot(commentsRef, (snapshot) => {
+        const comments = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        uiState.commentsByPost[postId] = Object.assign(comments, { __live: true });
+        render();
+      }, (error) => {
+        console.error(error);
+      });
+      uiState.unsubscribers.push(unsubscribe);
+    }
+
+    function buildCommentTree(postId) {
+      const flat = [...getCommentsForPost(postId)].filter(item => item && item.id);
+      const map = new Map();
+      flat.forEach(item => map.set(item.id, { ...item, replies: [] }));
+      const roots = [];
+      map.forEach(item => {
+        if (item.parentId && map.has(item.parentId)) {
+          map.get(item.parentId).replies.push(item);
+        } else {
+          roots.push(item);
+        }
+      });
+
+      const sortRecursive = (list) => {
+        list.sort((a, b) => {
+          const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+          const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+          return aTime - bTime;
+        });
+        list.forEach(item => sortRecursive(item.replies));
+      };
+
+      sortRecursive(roots);
+      assignCodes(roots, 'B');
+      return roots;
+    }
+
+    function assignCodes(list, prefix) {
+      list.forEach((item, index) => {
+        const code = prefix === 'B' ? `B${index + 1}` : `${prefix}-${index + 1}`;
+        item.code = code;
+        if (item.replies?.length) assignCodes(item.replies, code);
+      });
+    }
+
+    function countAllReplies(comments) {
+      let total = 0;
+      for (const item of comments || []) {
+        total += 1;
+        total += countAllReplies(item.replies || []);
+      }
+      return total;
+    }
+
+    function findCommentById(list, targetId) {
+      for (const item of list || []) {
+        if (item.id === targetId) return item;
+        const nested = findCommentById(item.replies || [], targetId);
+        if (nested) return nested;
+      }
+      return null;
+    }
+
+    async function registerAccount() {
+      const displayName = document.getElementById('registerDisplayName')?.value.trim();
+      const email = document.getElementById('registerEmail')?.value.trim();
+      const password = document.getElementById('registerPassword')?.value.trim();
+      if (!displayName || !email || !password) {
+        alert('請完整輸入暱稱、Email、密碼');
+        return;
+      }
+      try {
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(result.user, { displayName });
+        await setDoc(doc(db, 'profiles', result.user.uid), {
+          uid: result.user.uid,
+          displayName,
+          email,
+          createdAt: serverTimestamp()
+        });
+        render();
+      } catch (error) {
+        alert(getAuthErrorMessage(error));
+      }
+    }
+
+    async function loginAccount() {
+      const email = document.getElementById('loginEmail')?.value.trim();
+      const password = document.getElementById('loginPassword')?.value.trim();
+      if (!email || !password) {
+        alert('請輸入 Email 與密碼');
+        return;
+      }
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (error) {
+        alert(getAuthErrorMessage(error));
+      }
+    }
+
+    async function logoutAccount() {
+      await signOut(auth);
+    }
+
+    function getAuthErrorMessage(error) {
+      const code = error?.code || '';
+      if (code.includes('email-already')) return '此 Email 已被註冊';
+      if (code.includes('invalid-email')) return 'Email 格式不正確';
+      if (code.includes('weak-password')) return '密碼至少需要 6 碼';
+      if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) return '帳號或密碼錯誤';
+      return '操作失敗，請稍後再試';
+    }
+
+    async function publishPost() {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        alert('請先登入 account');
+        return;
+      }
+      const postInputEl = document.getElementById('postInput');
+      const content = postInputEl?.value.trim();
+      if (!content) {
+        alert('請先輸入貼文內容');
+        return;
+      }
+      await addDoc(collection(db, 'posts'), {
+        authorId: currentUser.uid,
+        author: getDisplayName(currentUser),
+        authorEmail: currentUser.email || '',
+        content,
+        createdAt: serverTimestamp(),
+        likesCount: 0
+      });
+      postInputEl.value = '';
+    }
+
+    async function addTopComment(postId) {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        alert('請先登入 account');
+        return;
+      }
+      const textarea = document.getElementById(`comment-input-${postId}`);
+      const content = textarea?.value.trim();
+      if (!content) {
+        alert('請先輸入留言內容');
+        return;
+      }
+      await addDoc(collection(db, 'posts', postId, 'comments'), {
+        parentId: null,
+        authorId: currentUser.uid,
+        author: getDisplayName(currentUser),
+        authorEmail: currentUser.email || '',
+        content,
+        createdAt: serverTimestamp(),
+        likesCount: 0
+      });
+      textarea.value = '';
+    }
+
+    async function addReply(postId, parentCommentId) {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        alert('請先登入 account');
+        return;
+      }
+      const textarea = document.getElementById(`reply-input-${parentCommentId}`);
+      const content = textarea?.value.trim();
+      if (!content) {
+        alert('請先輸入回覆內容');
+        return;
+      }
+      await addDoc(collection(db, 'posts', postId, 'comments'), {
+        parentId: parentCommentId,
+        authorId: currentUser.uid,
+        author: getDisplayName(currentUser),
+        authorEmail: currentUser.email || '',
+        content,
+        createdAt: serverTimestamp(),
+        likesCount: 0
+      });
+      uiState.openReplyBoxes.delete(parentCommentId);
+      render();
+    }
+
+    async function toggleLikePost(postId) {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        alert('請先登入 account');
+        return;
+      }
+      const likeRef = doc(db, 'posts', postId, 'likes', currentUser.uid);
+      const likeSnap = await getDoc(likeRef);
+      const postRef = doc(db, 'posts', postId);
+      if (likeSnap.exists()) {
+        await deleteDoc(likeRef);
+        await updateDoc(postRef, { likesCount: increment(-1) });
+      } else {
+        await setDoc(likeRef, {
+          uid: currentUser.uid,
+          createdAt: serverTimestamp()
+        });
+        await updateDoc(postRef, { likesCount: increment(1) });
+      }
+    }
+
+    async function toggleLikeComment(postId, commentId) {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        alert('請先登入 account');
+        return;
+      }
+      const likeRef = doc(db, 'posts', postId, 'comments', commentId, 'likes', currentUser.uid);
+      const commentRef = doc(db, 'posts', postId, 'comments', commentId);
+      const likeSnap = await getDoc(likeRef);
+      if (likeSnap.exists()) {
+        await deleteDoc(likeRef);
+        await updateDoc(commentRef, { likesCount: increment(-1) });
+      } else {
+        await setDoc(likeRef, {
+          uid: currentUser.uid,
+          createdAt: serverTimestamp()
+        });
+        await updateDoc(commentRef, { likesCount: increment(1) });
+      }
+    }
+
+    async function savePostEdit(postId) {
+      const input = document.getElementById(`edit-post-${postId}`);
+      const value = input?.value.trim();
+      const currentUser = getCurrentUser();
+      const post = uiState.posts.find(item => item.id === postId);
+      if (!value) {
+        alert('貼文內容不可為空');
+        return;
+      }
+      if (!post || !currentUser || post.authorId !== currentUser.uid) return;
+      await updateDoc(doc(db, 'posts', postId), { content: value, editedAt: serverTimestamp() });
+      uiState.editingMap.delete(`post-${postId}`);
+      render();
+    }
+
+    async function saveCommentEdit(postId, commentId) {
+      const input = document.getElementById(`edit-comment-${commentId}`);
+      const value = input?.value.trim();
+      const currentUser = getCurrentUser();
+      const comment = getCommentsForPost(postId).find(item => item.id === commentId);
+      if (!value) {
+        alert('留言內容不可為空');
+        return;
+      }
+      if (!comment || !currentUser || comment.authorId !== currentUser.uid) return;
+      await updateDoc(doc(db, 'posts', postId, 'comments', commentId), { content: value, editedAt: serverTimestamp() });
+      uiState.editingMap.delete(`comment-${commentId}`);
+      render();
+    }
+
+    async function deletePost(postId) {
+      const currentUser = getCurrentUser();
+      const post = uiState.posts.find(item => item.id === postId);
+      if (!post || !currentUser || post.authorId !== currentUser.uid) return;
+      if (!confirm('確定要刪除這篇貼文嗎？')) return;
+
+      const commentsSnap = await getDocs(collection(db, 'posts', postId, 'comments'));
+      const batch = writeBatch(db);
+      commentsSnap.forEach(docSnap => batch.delete(docSnap.ref));
+      batch.delete(doc(db, 'posts', postId));
+      await batch.commit();
+      navigateToHome();
+    }
+
+    async function deleteComment(postId, commentId) {
+      const currentUser = getCurrentUser();
+      const comment = getCommentsForPost(postId).find(item => item.id === commentId);
+      if (!comment || !currentUser || comment.authorId !== currentUser.uid) return;
+      if (!confirm('確定要刪除這則留言與其所有回覆嗎？')) return;
+
+      const allComments = getCommentsForPost(postId);
+      const idsToDelete = collectCommentBranchIds(allComments, commentId);
+      const batch = writeBatch(db);
+      idsToDelete.forEach(id => batch.delete(doc(db, 'posts', postId, 'comments', id)));
+      await batch.commit();
+    }
+
+    function collectCommentBranchIds(allComments, rootId) {
+      const childrenMap = new Map();
+      allComments.forEach(item => {
+        const key = item.parentId || '__root__';
+        const arr = childrenMap.get(key) || [];
+        arr.push(item.id);
+        childrenMap.set(key, arr);
+      });
+      const ids = [];
+      const walk = (id) => {
+        ids.push(id);
+        const children = childrenMap.get(id) || [];
+        children.forEach(walk);
+      };
+      walk(rootId);
+      return ids;
+    }
+
+    async function copyPostLink(postId) {
+      const url = getPostShareUrl(postId);
+      try {
+        await navigator.clipboard.writeText(url);
+        alert('已複製文章連結');
+      } catch (error) {
+        prompt('請手動複製這個連結', url);
+      }
+    }
+
+    function toggleReplyBox(commentId) {
+      if (uiState.openReplyBoxes.has(commentId)) uiState.openReplyBoxes.delete(commentId);
+      else uiState.openReplyBoxes.add(commentId);
+      render();
+    }
+
+    function cancelReply(commentId) {
+      uiState.openReplyBoxes.delete(commentId);
+      render();
+    }
+
+    function toggleEdit(itemKey) {
+      if (uiState.editingMap.has(itemKey)) uiState.editingMap.delete(itemKey);
+      else uiState.editingMap.add(itemKey);
+      render();
+    }
+
+    function toggleShareBox(postId) {
+      if (uiState.openShareBoxes.has(postId)) uiState.openShareBoxes.delete(postId);
+      else uiState.openShareBoxes.add(postId);
+      render();
+    }
+
+    function switchAuthMode(mode) {
+      uiState.authMode = mode;
+      renderAuth();
+    }
+
+    function renderTopbar() {
+      const currentUser = getCurrentUser();
+      topbarRightEl.innerHTML = currentUser
+        ? `
+          <div class="login-chip">
+            <span>登入中：<strong>${escapeHtml(getDisplayName(currentUser))}</strong></span>
+            <button class="btn btn-secondary" onclick="logoutAccount()">登出</button>
+          </div>
+        `
+        : `<div class="login-chip">尚未登入</div>`;
+    }
+
+    function renderConfig() {
+      if (uiState.firebaseReady) {
+        configMountEl.innerHTML = '';
+        return;
+      }
+      configMountEl.innerHTML = `
+        <section class="config-card">
+          <div class="config-inner">
+            <div class="config-title">先補上 Firebase 設定</div>
+            <div class="config-text">你現在看到的是可多人共用資料的版本，但要先把程式最上方的 firebaseConfig 改成你自己的專案設定，之後再部署到 GitHub Pages，所有人就能看到同一份貼文與留言</div>
+            <div class="stack" style="margin-top:14px; text-align:left;">
+              <div class="chip">1. 建立 Firebase 專案</div>
+              <div class="chip">2. 開啟 Authentication 的 Email/Password</div>
+              <div class="chip">3. 建立 Firestore Database</div>
+              <div class="chip">4. 把 firebaseConfig 貼進這份 HTML</div>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderAuth() {
+      if (!uiState.firebaseReady) {
+        authMountEl.innerHTML = '';
+        return;
+      }
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        authMountEl.innerHTML = '';
+        return;
+      }
+      authMountEl.innerHTML = `
+        <section class="auth-panel">
+          <div class="auth-card">
+            <div class="auth-title">建立自己的 account</div>
+            <div class="auth-desc">這一版使用 Firebase Auth，因此不同人登入後都會共用同一份雲端貼文資料</div>
+            <div class="action-row" style="margin-top:0; margin-bottom:12px;">
+              <button class="btn ${uiState.authMode === 'register' ? 'btn-primary' : 'btn-secondary'}" onclick="switchAuthMode('register')">註冊</button>
+              <button class="btn ${uiState.authMode === 'login' ? 'btn-primary' : 'btn-secondary'}" onclick="switchAuthMode('login')">登入</button>
+            </div>
+            ${uiState.authMode === 'register' ? `
+              <div class="auth-grid">
+                <div>
+                  <div class="field-label">顯示名稱</div>
+                  <input id="registerDisplayName" type="text" class="surface-input" placeholder="例如 DebateMaster" />
+                </div>
+                <div>
+                  <div class="field-label">Email</div>
+                  <input id="registerEmail" type="email" class="surface-input" placeholder="name@example.com" />
+                </div>
+              </div>
+              <div class="stack" style="margin-top:12px;">
+                <div>
+                  <div class="field-label">密碼</div>
+                  <input id="registerPassword" type="password" class="surface-input" placeholder="至少 6 碼" />
+                </div>
+              </div>
+              <div class="auth-actions">
+                <button class="btn btn-primary" onclick="registerAccount()">建立 account</button>
+              </div>
+            ` : `
+              <div class="auth-grid">
+                <div>
+                  <div class="field-label">Email</div>
+                  <input id="loginEmail" type="email" class="surface-input" placeholder="name@example.com" />
+                </div>
+                <div>
+                  <div class="field-label">密碼</div>
+                  <input id="loginPassword" type="password" class="surface-input" placeholder="輸入你的密碼" />
+                </div>
+              </div>
+              <div class="auth-actions">
+                <button class="btn btn-primary" onclick="loginAccount()">登入</button>
+              </div>
+            `}
+          </div>
+        </section>
+      `;
+    }
+
+    function renderNotice() {
+      const viewingPostId = getViewingPostId();
+      if (!viewingPostId) {
+        noticeMountEl.innerHTML = '';
+        return;
+      }
+      const post = uiState.posts.find(item => item.id === viewingPostId);
+      if (!post) {
+        noticeMountEl.innerHTML = `
+          <section class="notice">
+            找不到這篇文章，可能已被刪除
+          </section>
+        `;
+        return;
+      }
+      noticeMountEl.innerHTML = `
+        <section class="notice">
+          你正在查看單篇文章頁，這個網址可以直接分享給別人閱讀
+          <button class="link-btn" onclick="navigateToHome()" style="margin-left:8px; font-weight:800; color:#111;">返回全部貼文</button>
+        </section>
+      `;
+    }
+
+    function renderComposer() {
+      if (!uiState.firebaseReady) {
+        composerSectionEl.innerHTML = '';
+        return;
+      }
+      const currentUser = getCurrentUser();
+      composerSectionEl.innerHTML = `
+        <div class="composer-row">
+          <div class="avatar-wrap">
+            <div class="avatar">${getInitials(currentUser ? getDisplayName(currentUser) : 'GU')}</div>
+          </div>
+          <div class="composer-main">
+            <div class="composer-header">
+              <span>${currentUser ? escapeHtml(getDisplayName(currentUser)) : '請先登入後發文'}</span>
+              <span class="header-caption">雲端共享貼文牆</span>
+            </div>
+            <textarea id="postInput" class="surface-input" placeholder="今天想發表什麼觀點？" ${currentUser ? '' : 'disabled'}></textarea>
+            <div class="composer-tools">
+              <div class="composer-hint">發佈後，所有訪客都能立即看到內容</div>
+              <button class="btn btn-primary" onclick="publishPost()" ${currentUser ? '' : 'disabled'}>發佈文章</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderLoading() {
+      if (uiState.loading) {
+        loadingMountEl.innerHTML = `
+          <section class="loading-card">
+            <div class="spinner"></div>
+            <div class="loading-text">正在同步雲端貼文與留言</div>
+          </section>
+        `;
+      } else {
+        loadingMountEl.innerHTML = '';
+      }
+    }
+
+    function renderPost(post) {
+      const currentUser = getCurrentUser();
+      const comments = buildCommentTree(post.id);
+      const totalComments = countAllReplies(comments);
+      const editing = uiState.editingMap.has(`post-${post.id}`);
+      const showShare = uiState.openShareBoxes.has(post.id);
+      const isOwner = currentUser && post.authorId === currentUser.uid;
+
+      return `
+        <article class="post">
+          <div class="thread-row">
+            <div class="line-col">
+              <div class="avatar">${getInitials(post.author)}</div>
+              <div class="vertical-line"></div>
+            </div>
+            <div class="post-main">
+              <div class="meta-row">
+                <span class="name">${escapeHtml(post.author)}</span>
+                <span class="chip">${formatTime(post.createdAt)}</span>
+                ${post.editedAt ? '<span class="tiny-chip">已編輯</span>' : ''}
+              </div>
+
+              ${editing ? `
+                <div class="edit-box">
+                  <textarea id="edit-post-${post.id}" class="surface-input">${escapeHtml(post.content)}</textarea>
+                  <div class="edit-actions">
+                    <button class="btn btn-secondary" onclick="toggleEdit('post-${post.id}')">取消</button>
+                    <button class="btn btn-primary" onclick="savePostEdit('${post.id}')">儲存</button>
+                  </div>
+                </div>
+              ` : `
+                <div class="post-content">${escapeHtml(post.content)}</div>
+              `}
+
+              <div class="action-row">
+                <button class="pill-btn" onclick="toggleLikePost('${post.id}')">♡ ${post.likesCount || 0}</button>
+                <button class="pill-btn" onclick="navigateToPost('${post.id}')">💬 ${totalComments}</button>
+                <button class="pill-btn" onclick="toggleShareBox('${post.id}')">分享文章</button>
+              </div>
+
+              <div class="menu-row">
+                <button class="text-btn" onclick="navigateToPost('${post.id}')">查看單篇</button>
+                <span class="divider-space"></span>
+                <button class="text-btn" onclick="copyPostLink('${post.id}')">複製連結</button>
+                ${isOwner ? `
+                  <span class="divider-space"></span>
+                  <button class="text-btn" onclick="toggleEdit('post-${post.id}')">編輯貼文</button>
+                  <span class="divider-space"></span>
+                  <button class="text-btn" onclick="deletePost('${post.id}')">刪除貼文</button>
+                ` : ''}
+              </div>
+
+              ${showShare ? `
+                <div class="post-link-box">
+                  <div>這篇文章的分享連結</div>
+                  <div class="post-link-url">${escapeHtml(getPostShareUrl(post.id))}</div>
+                  <div>
+                    <button class="btn btn-secondary" onclick="copyPostLink('${post.id}')">複製網址</button>
+                  </div>
+                </div>
+              ` : ''}
+
+              <div class="comment-composer">
+                <div class="comments-title">留言區（由舊到新）</div>
+                <textarea id="comment-input-${post.id}" class="surface-input" placeholder="回覆這則串文..." ${currentUser ? '' : 'disabled'}></textarea>
+                <div class="comment-actions">
+                  <button class="btn btn-primary" onclick="addTopComment('${post.id}')" ${currentUser ? '' : 'disabled'}>送出留言</button>
+                </div>
+              </div>
+
+              <div class="comments-wrap">
+                ${comments.length ? comments.map((comment, index) => renderComment(post.id, comment, index === comments.length - 1)).join('') : '<div class="empty">目前還沒有留言</div>'}
+              </div>
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderComment(postId, comment, isLast = false) {
+      const currentUser = getCurrentUser();
+      const replyOpen = uiState.openReplyBoxes.has(comment.id);
+      const editing = uiState.editingMap.has(`comment-${comment.id}`);
+      const isOwner = currentUser && comment.authorId === currentUser.uid;
+
+      return `
+        <div class="comment-thread">
+          <div class="thread-row">
+            <div class="line-col">
+              <div class="avatar small">${getInitials(comment.author)}</div>
+              ${isLast ? '' : '<div class="vertical-line"></div>'}
+            </div>
+            <div class="comment-main">
+              <div class="meta-row">
+                <span class="name">${escapeHtml(comment.author)}</span>
+                <span class="badge">${comment.code}</span>
+                <span class="time">${formatTime(comment.createdAt)}</span>
+                ${comment.editedAt ? '<span class="tiny-chip">已編輯</span>' : ''}
+              </div>
+
+              ${editing ? `
+                <div class="edit-box">
+                  <textarea id="edit-comment-${comment.id}" class="surface-input">${escapeHtml(comment.content)}</textarea>
+                  <div class="edit-actions">
+                    <button class="btn btn-secondary" onclick="toggleEdit('comment-${comment.id}')">取消</button>
+                    <button class="btn btn-primary" onclick="saveCommentEdit('${postId}', '${comment.id}')">儲存</button>
+                  </div>
+                </div>
+              ` : `
+                <div class="comment-content">${escapeHtml(comment.content)}</div>
+              `}
+
+              <div class="action-row">
+                <button class="pill-btn" onclick="toggleLikeComment('${postId}', '${comment.id}')">♡ ${comment.likesCount || 0}</button>
+                <button class="pill-btn" onclick="toggleReplyBox('${comment.id}')">回覆</button>
+                ${isOwner ? `<button class="text-btn" onclick="toggleEdit('comment-${comment.id}')">編輯</button>` : ''}
+                ${isOwner ? `<button class="text-btn" onclick="deleteComment('${postId}', '${comment.id}')">刪除</button>` : ''}
+              </div>
+
+              ${replyOpen ? `
+                <div class="reply-box">
+                  <textarea id="reply-input-${comment.id}" class="surface-input" placeholder="回覆 ${comment.code}..." ${currentUser ? '' : 'disabled'}></textarea>
+                  <div class="reply-actions">
+                    <button class="btn btn-secondary" onclick="cancelReply('${comment.id}')">取消</button>
+                    <button class="btn btn-primary" onclick="addReply('${postId}', '${comment.id}')" ${currentUser ? '' : 'disabled'}>送出回覆</button>
+                  </div>
+                </div>
+              ` : ''}
+
+              ${comment.replies?.length ? `
+                <div class="reply-list">
+                  ${comment.replies.map((reply, index) => renderComment(postId, reply, index === comment.replies.length - 1)).join('')}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderFeed() {
+      if (!uiState.firebaseReady) {
+        feedEl.innerHTML = '';
+        return;
+      }
+      const viewingPostId = getViewingPostId();
+      const posts = viewingPostId
+        ? uiState.posts.filter(post => post.id === viewingPostId)
+        : uiState.posts;
+      feedEl.innerHTML = posts.length
+        ? posts.map(renderPost).join('')
+        : '<section class="loading-card"><div class="loading-text">目前還沒有貼文，來發表第一篇吧</div></section>';
+    }
+
+    function render() {
+      renderTopbar();
+      renderConfig();
+      renderAuth();
+      renderNotice();
+      renderComposer();
+      renderLoading();
+      renderFeed();
+    }
+
+    window.addEventListener('hashchange', render);
+
+    window.publishPost = publishPost;
+    window.addTopComment = addTopComment;
+    window.addReply = addReply;
+    window.toggleReplyBox = toggleReplyBox;
+    window.cancelReply = cancelReply;
+    window.toggleLikePost = toggleLikePost;
+    window.toggleLikeComment = toggleLikeComment;
+    window.toggleEdit = toggleEdit;
+    window.toggleShareBox = toggleShareBox;
+    window.savePostEdit = savePostEdit;
+    window.saveCommentEdit = saveCommentEdit;
+    window.deletePost = deletePost;
+    window.deleteComment = deleteComment;
+    window.copyPostLink = copyPostLink;
+    window.navigateToPost = navigateToPost;
+    window.navigateToHome = navigateToHome;
+    window.registerAccount = registerAccount;
+    window.loginAccount = loginAccount;
+    window.logoutAccount = logoutAccount;
+    window.switchAuthMode = switchAuthMode;
+
+    render();
+  </script>
+</body>
+</html>
