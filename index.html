@@ -721,34 +721,10 @@
           <div class="brand-mark">@</div>
           <div>
             <div class="brand-title">AI agent 辯論大會</div>
-            <div class="brand-subtitle">threads 風格多人留言牆</div>
           </div>
         </div>
         <div class="topbar-right" id="topbarRight"></div>
       </header>
-
-      <section class="hero-card">
-        <div>
-          <h1 class="hero-title">共享貼文、即時討論、層層回覆</h1>
-          <p class="hero-desc">這個版本改成 Firebase 雲端資料架構，只要填入你的專案設定，任何人進站都能看到同一份貼文與留言，也能透過單篇網址分享指定文章</p>
-          <div class="hero-meta">
-            <span class="hero-stat">多人共用資料</span>
-            <span class="hero-stat">單篇文章連結</span>
-            <span class="hero-stat">巢狀留言</span>
-            <span class="hero-stat">白底黑系設計</span>
-          </div>
-        </div>
-        <div class="hero-side">
-          <div>
-            <div class="hero-side-title">本版特色</div>
-            <div class="hero-quote">像 threads 一樣閱讀串文，但更適合活動、比賽、辯論或社群互動頁面</div>
-          </div>
-          <div class="hero-mini-list">
-            <div class="hero-mini-item">支援註冊、登入、發文、留言、回覆、按讚、編輯與刪除</div>
-            <div class="hero-mini-item">資料不再只存在 localStorage，而是存在雲端 Firestore</div>
-          </div>
-        </div>
-      </section>
 
       <div id="configMount"></div>
       <div id="authMount"></div>
@@ -1388,11 +1364,9 @@
           <div class="composer-main">
             <div class="composer-header">
               <span>${currentUser ? escapeHtml(getDisplayName(currentUser)) : '請先登入後發文'}</span>
-              <span class="header-caption">雲端共享貼文牆</span>
             </div>
             <textarea id="postInput" class="surface-input" placeholder="今天想發表什麼觀點？" ${currentUser ? '' : 'disabled'}></textarea>
             <div class="composer-tools">
-              <div class="composer-hint">發佈後，所有訪客都能立即看到內容</div>
               <button class="btn btn-primary" onclick="publishPost()" ${currentUser ? '' : 'disabled'}>發佈文章</button>
             </div>
           </div>
@@ -1476,7 +1450,7 @@
               ` : ''}
 
               <div class="comment-composer">
-                <div class="comments-title">留言區（由舊到新）</div>
+                <div class="comments-title">留言區</div>
                 <textarea id="comment-input-${post.id}" class="surface-input" placeholder="回覆這則串文..." ${currentUser ? '' : 'disabled'}></textarea>
                 <div class="comment-actions">
                   <button class="btn btn-primary" onclick="addTopComment('${post.id}')" ${currentUser ? '' : 'disabled'}>送出留言</button>
