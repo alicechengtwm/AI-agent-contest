@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI agent 辯論大會</title>
+  <title>TWM 討論版</title>
   <style>
     * { box-sizing: border-box; }
 
@@ -533,6 +533,12 @@
       font-weight: 900;
     }
 
+    .pill-btn.liked {
+      color: var(--danger);
+      border-color: rgba(212,63,58,0.22);
+      background: rgba(212,63,58,0.08);
+    }
+
     .comment-composer {
       margin-top: 18px;
       padding-top: 16px;
@@ -720,7 +726,7 @@
         <div class="brand-wrap">
           <div class="brand-mark">@</div>
           <div>
-            <div class="brand-title">AI agent 辯論大會</div>
+            <div class="brand-title">AI agent 討論版</div>
           </div>
         </div>
         <div class="topbar-right" id="topbarRight"></div>
@@ -788,6 +794,8 @@
       openShareBoxes: new Set(),
       posts: [],
       commentsByPost: {},
+      postLikes: new Set(),
+      commentLikes: new Set(),
       currentUser: null,
       loading: true,
       firebaseReady: isFirebaseConfigValid(firebaseConfig),
@@ -813,8 +821,9 @@
     }
 
     function startApp() {
-      onAuthStateChanged(auth, (user) => {
+      onAuthStateChanged(auth, async (user) => {
         uiState.currentUser = user;
+        await refreshAllLikeStates();
         render();
       });
 
@@ -876,12 +885,54 @@
       return uiState.commentsByPost[postId] || [];
     }
 
+    function getCommentLikeKey(postId, commentId) {
+      return `${postId}:${commentId}`;
+    }
+
+    function isPostLiked(postId) {
+      return !!getCurrentUser() && uiState.postLikes.has(postId);
+    }
+
+    function isCommentLiked(postId, commentId) {
+      return !!getCurrentUser() && uiState.commentLikes.has(getCommentLikeKey(postId, commentId));
+    }
+
+    async function refreshAllLikeStates() {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        uiState.postLikes = new Set();
+        uiState.commentLikes = new Set();
+        return;
+      }
+
+      const postLikes = await Promise.all(
+        uiState.posts.map(async (post) => {
+          const likeSnap = await getDoc(doc(db, 'posts', post.id, 'likes', currentUser.uid));
+          return likeSnap.exists() ? post.id : null;
+        })
+      );
+
+      const commentLikeChecks = Object.entries(uiState.commentsByPost).flatMap(([postId]) =>
+        getCommentsForPost(postId)
+          .filter(item => item && item.id)
+          .map(async (comment) => {
+            const likeSnap = await getDoc(doc(db, 'posts', postId, 'comments', comment.id, 'likes', currentUser.uid));
+            return likeSnap.exists() ? getCommentLikeKey(postId, comment.id) : null;
+          })
+      );
+
+      const commentLikes = await Promise.all(commentLikeChecks);
+      uiState.postLikes = new Set(postLikes.filter(Boolean));
+      uiState.commentLikes = new Set(commentLikes.filter(Boolean));
+    }
+
     function subscribePosts() {
       uiState.loading = true;
       const postsRef = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
       const unsubscribe = onSnapshot(postsRef, async (snapshot) => {
         uiState.posts = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
         await Promise.all(uiState.posts.map(post => subscribeComments(post.id)));
+        await refreshAllLikeStates();
         uiState.loading = false;
         render();
       }, (error) => {
@@ -895,9 +946,10 @@
     async function subscribeComments(postId) {
       if (uiState.commentsByPost[postId]?.__live) return;
       const commentsRef = query(collection(db, 'posts', postId, 'comments'), orderBy('createdAt', 'asc'));
-      const unsubscribe = onSnapshot(commentsRef, (snapshot) => {
+      const unsubscribe = onSnapshot(commentsRef, async (snapshot) => {
         const comments = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
         uiState.commentsByPost[postId] = Object.assign(comments, { __live: true });
+        await refreshAllLikeStates();
         render();
       }, (error) => {
         console.error(error);
@@ -963,7 +1015,7 @@
       const email = document.getElementById('registerEmail')?.value.trim();
       const password = document.getElementById('registerPassword')?.value.trim();
       if (!displayName || !email || !password) {
-        alert('請完整輸入暱稱、Email、密碼');
+        alert('請填寫顯示名稱、Email 和密碼');
         return;
       }
       try {
@@ -985,7 +1037,7 @@
       const email = document.getElementById('loginEmail')?.value.trim();
       const password = document.getElementById('loginPassword')?.value.trim();
       if (!email || !password) {
-        alert('請輸入 Email 與密碼');
+        alert('請輸入 Email 和密碼');
         return;
       }
       try {
@@ -1001,11 +1053,11 @@
 
     function getAuthErrorMessage(error) {
       const code = error?.code || '';
-      if (code.includes('email-already')) return '此 Email 已被註冊';
+      if (code.includes('email-already')) return '這個 Email 已經被註冊';
       if (code.includes('invalid-email')) return 'Email 格式不正確';
-      if (code.includes('weak-password')) return '密碼至少需要 6 碼';
+      if (code.includes('weak-password')) return '密碼至少需要 6 個字元';
       if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) return '帳號或密碼錯誤';
-      return '操作失敗，請稍後再試';
+      return '發生錯誤，請稍後再試';
     }
 
     async function publishPost() {
@@ -1017,7 +1069,7 @@
       const postInputEl = document.getElementById('postInput');
       const content = postInputEl?.value.trim();
       if (!content) {
-        alert('請先輸入貼文內容');
+        alert('請輸入貼文內容');
         return;
       }
       await addDoc(collection(db, 'posts'), {
@@ -1040,7 +1092,7 @@
       const textarea = document.getElementById(`comment-input-${postId}`);
       const content = textarea?.value.trim();
       if (!content) {
-        alert('請先輸入留言內容');
+        alert('請輸入留言內容');
         return;
       }
       await addDoc(collection(db, 'posts', postId, 'comments'), {
@@ -1064,7 +1116,7 @@
       const textarea = document.getElementById(`reply-input-${parentCommentId}`);
       const content = textarea?.value.trim();
       if (!content) {
-        alert('請先輸入回覆內容');
+        alert('請輸入回覆內容');
         return;
       }
       await addDoc(collection(db, 'posts', postId, 'comments'), {
@@ -1092,13 +1144,16 @@
       if (likeSnap.exists()) {
         await deleteDoc(likeRef);
         await updateDoc(postRef, { likesCount: increment(-1) });
+        uiState.postLikes.delete(postId);
       } else {
         await setDoc(likeRef, {
           uid: currentUser.uid,
           createdAt: serverTimestamp()
         });
         await updateDoc(postRef, { likesCount: increment(1) });
+        uiState.postLikes.add(postId);
       }
+      render();
     }
 
     async function toggleLikeComment(postId, commentId) {
@@ -1110,16 +1165,20 @@
       const likeRef = doc(db, 'posts', postId, 'comments', commentId, 'likes', currentUser.uid);
       const commentRef = doc(db, 'posts', postId, 'comments', commentId);
       const likeSnap = await getDoc(likeRef);
+      const commentLikeKey = getCommentLikeKey(postId, commentId);
       if (likeSnap.exists()) {
         await deleteDoc(likeRef);
         await updateDoc(commentRef, { likesCount: increment(-1) });
+        uiState.commentLikes.delete(commentLikeKey);
       } else {
         await setDoc(likeRef, {
           uid: currentUser.uid,
           createdAt: serverTimestamp()
         });
         await updateDoc(commentRef, { likesCount: increment(1) });
+        uiState.commentLikes.add(commentLikeKey);
       }
+      render();
     }
 
     async function savePostEdit(postId) {
@@ -1201,9 +1260,9 @@
       const url = getPostShareUrl(postId);
       try {
         await navigator.clipboard.writeText(url);
-        alert('已複製文章連結');
+        alert('連結已複製到剪貼簿');
       } catch (error) {
-        prompt('請手動複製這個連結', url);
+        prompt('無法自動複製，請手動複製以下連結：', url);
       }
     }
 
@@ -1240,7 +1299,7 @@
       topbarRightEl.innerHTML = currentUser
         ? `
           <div class="login-chip">
-            <span>登入中：<strong>${escapeHtml(getDisplayName(currentUser))}</strong></span>
+            <span>目前登入：<strong>${escapeHtml(getDisplayName(currentUser))}</strong></span>
             <button class="btn btn-secondary" onclick="logoutAccount()">登出</button>
           </div>
         `
@@ -1255,13 +1314,13 @@
       configMountEl.innerHTML = `
         <section class="config-card">
           <div class="config-inner">
-            <div class="config-title">先補上 Firebase 設定</div>
-            <div class="config-text">你現在看到的是可多人共用資料的版本，但要先把程式最上方的 firebaseConfig 改成你自己的專案設定，之後再部署到 GitHub Pages，所有人就能看到同一份貼文與留言</div>
+            <div class="config-title">尚未設定 Firebase</div>
+            <div class="config-text">如果你是第一次使用這個討論版，請先把自己的 Firebase 專案設定填入 firebaseConfig。完成之後重新整理頁面，就能啟用註冊、登入、發文、留言和按讚功能。</div>
             <div class="stack" style="margin-top:14px; text-align:left;">
               <div class="chip">1. 建立 Firebase 專案</div>
-              <div class="chip">2. 開啟 Authentication 的 Email/Password</div>
+              <div class="chip">2. 啟用 Authentication 的 Email/Password</div>
               <div class="chip">3. 建立 Firestore Database</div>
-              <div class="chip">4. 把 firebaseConfig 貼進這份 HTML</div>
+              <div class="chip">4. 將 firebaseConfig 貼回 HTML</div>
             </div>
           </div>
         </section>
@@ -1281,7 +1340,7 @@
       authMountEl.innerHTML = `
         <section class="auth-panel">
           <div class="auth-card">
-            <div class="auth-title">建立自己的 account</div>
+            <div class="auth-title">建立或登入 account</div>
             <div class="action-row" style="margin-top:0; margin-bottom:12px;">
               <button class="btn ${uiState.authMode === 'register' ? 'btn-primary' : 'btn-secondary'}" onclick="switchAuthMode('register')">註冊</button>
               <button class="btn ${uiState.authMode === 'login' ? 'btn-primary' : 'btn-secondary'}" onclick="switchAuthMode('login')">登入</button>
@@ -1300,7 +1359,7 @@
               <div class="stack" style="margin-top:12px;">
                 <div>
                   <div class="field-label">密碼</div>
-                  <input id="registerPassword" type="password" class="surface-input" placeholder="至少 6 碼" />
+                  <input id="registerPassword" type="password" class="surface-input" placeholder="至少 6 個字元" />
                 </div>
               </div>
               <div class="auth-actions">
@@ -1314,7 +1373,7 @@
                 </div>
                 <div>
                   <div class="field-label">密碼</div>
-                  <input id="loginPassword" type="password" class="surface-input" placeholder="輸入你的密碼" />
+                  <input id="loginPassword" type="password" class="surface-input" placeholder="請輸入你的密碼" />
                 </div>
               </div>
               <div class="auth-actions">
@@ -1336,15 +1395,15 @@
       if (!post) {
         noticeMountEl.innerHTML = `
           <section class="notice">
-            找不到這篇文章，可能已被刪除
+            找不到這篇貼文，可能已被刪除或連結失效。
           </section>
         `;
         return;
       }
       noticeMountEl.innerHTML = `
         <section class="notice">
-          你正在查看單篇文章頁，這個網址可以直接分享給別人閱讀
-          <button class="link-btn" onclick="navigateToHome()" style="margin-left:8px; font-weight:800; color:#111;">返回全部貼文</button>
+          你目前正在查看單篇貼文頁面，可以直接留言、回覆，或複製分享連結。
+          <button class="link-btn" onclick="navigateToHome()" style="margin-left:8px; font-weight:800; color:#111;">返回文章列表</button>
         </section>
       `;
     }
@@ -1362,11 +1421,11 @@
           </div>
           <div class="composer-main">
             <div class="composer-header">
-              <span>${currentUser ? escapeHtml(getDisplayName(currentUser)) : '請先登入後發文'}</span>
+              <span>${currentUser ? escapeHtml(getDisplayName(currentUser)) : '請先登入後再發文'}</span>
             </div>
-            <textarea id="postInput" class="surface-input" placeholder="今天想發表什麼觀點？" ${currentUser ? '' : 'disabled'}></textarea>
+            <textarea id="postInput" class="surface-input" placeholder="分享你的觀點、案例或最新想法..." ${currentUser ? '' : 'disabled'}></textarea>
             <div class="composer-tools">
-              <button class="btn btn-primary" onclick="publishPost()" ${currentUser ? '' : 'disabled'}>發佈文章</button>
+              <button class="btn btn-primary" onclick="publishPost()" ${currentUser ? '' : 'disabled'}>發布貼文</button>
             </div>
           </div>
         </div>
@@ -1378,7 +1437,7 @@
         loadingMountEl.innerHTML = `
           <section class="loading-card">
             <div class="spinner"></div>
-            <div class="loading-text">正在同步雲端貼文與留言</div>
+            <div class="loading-text">正在載入討論內容...</div>
           </section>
         `;
       } else {
@@ -1393,6 +1452,7 @@
       const editing = uiState.editingMap.has(`post-${post.id}`);
       const showShare = uiState.openShareBoxes.has(post.id);
       const isOwner = currentUser && post.authorId === currentUser.uid;
+      const liked = isPostLiked(post.id);
 
       return `
         <article class="post">
@@ -1421,8 +1481,8 @@
               `}
 
               <div class="action-row">
-                <button class="pill-btn" onclick="toggleLikePost('${post.id}')">♡ ${post.likesCount || 0}</button>
-                <button class="pill-btn" onclick="navigateToPost('${post.id}')">💬 ${totalComments}</button>
+                <button class="pill-btn ${liked ? 'active liked' : ''}" onclick="toggleLikePost('${post.id}')" aria-pressed="${liked}">${liked ? '♥' : '♡'} ${post.likesCount || 0}</button>
+                <button class="pill-btn" onclick="navigateToPost('${post.id}')">留言 ${totalComments}</button>
                 <button class="pill-btn" onclick="toggleShareBox('${post.id}')">分享文章</button>
               </div>
 
@@ -1440,17 +1500,17 @@
 
               ${showShare ? `
                 <div class="post-link-box">
-                  <div>這篇文章的分享連結</div>
+                  <div>這篇貼文的分享連結：</div>
                   <div class="post-link-url">${escapeHtml(getPostShareUrl(post.id))}</div>
                   <div>
-                    <button class="btn btn-secondary" onclick="copyPostLink('${post.id}')">複製網址</button>
+                    <button class="btn btn-secondary" onclick="copyPostLink('${post.id}')">複製分享連結</button>
                   </div>
                 </div>
               ` : ''}
 
               <div class="comment-composer">
                 <div class="comments-title">留言區</div>
-                <textarea id="comment-input-${post.id}" class="surface-input" placeholder="回覆這則串文..." ${currentUser ? '' : 'disabled'}></textarea>
+                <textarea id="comment-input-${post.id}" class="surface-input" placeholder="寫下你的留言..." ${currentUser ? '' : 'disabled'}></textarea>
                 <div class="comment-actions">
                   <button class="btn btn-primary" onclick="addTopComment('${post.id}')" ${currentUser ? '' : 'disabled'}>送出留言</button>
                 </div>
@@ -1470,6 +1530,7 @@
       const replyOpen = uiState.openReplyBoxes.has(comment.id);
       const editing = uiState.editingMap.has(`comment-${comment.id}`);
       const isOwner = currentUser && comment.authorId === currentUser.uid;
+      const liked = isCommentLiked(postId, comment.id);
 
       return `
         <div class="comment-thread">
@@ -1499,7 +1560,7 @@
               `}
 
               <div class="action-row">
-                <button class="pill-btn" onclick="toggleLikeComment('${postId}', '${comment.id}')">♡ ${comment.likesCount || 0}</button>
+                <button class="pill-btn ${liked ? 'active liked' : ''}" onclick="toggleLikeComment('${postId}', '${comment.id}')" aria-pressed="${liked}">${liked ? '♥' : '♡'} ${comment.likesCount || 0}</button>
                 <button class="pill-btn" onclick="toggleReplyBox('${comment.id}')">回覆</button>
                 ${isOwner ? `<button class="text-btn" onclick="toggleEdit('comment-${comment.id}')">編輯</button>` : ''}
                 ${isOwner ? `<button class="text-btn" onclick="deleteComment('${postId}', '${comment.id}')">刪除</button>` : ''}
@@ -1537,7 +1598,7 @@
         : uiState.posts;
       feedEl.innerHTML = posts.length
         ? posts.map(renderPost).join('')
-        : '<section class="loading-card"><div class="loading-text">目前還沒有貼文，來發表第一篇吧</div></section>';
+        : '<section class="loading-card"><div class="loading-text">目前還沒有貼文，來發布第一篇吧。</div></section>';
     }
 
     function render() {
@@ -1577,3 +1638,5 @@
   </script>
 </body>
 </html>
+
+
