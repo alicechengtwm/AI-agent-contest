@@ -726,7 +726,7 @@
         <div class="brand-wrap">
           <div class="brand-mark">@</div>
           <div>
-            <div class="brand-title">AI agent 討論版</div>
+            <div class="brand-title">TWM 討論版</div>
           </div>
         </div>
         <div class="topbar-right" id="topbarRight"></div>
@@ -796,6 +796,8 @@
       commentsByPost: {},
       postLikes: new Set(),
       commentLikes: new Set(),
+      postLikeUnsubscribers: {},
+      commentLikeUnsubscribers: {},
       currentUser: null,
       loading: true,
       firebaseReady: isFirebaseConfigValid(firebaseConfig),
@@ -926,11 +928,48 @@
       uiState.commentLikes = new Set(commentLikes.filter(Boolean));
     }
 
+    function setPostLikesCount(postId, likesCount) {
+      uiState.posts = uiState.posts.map(post =>
+        post.id === postId ? { ...post, likesCount } : post
+      );
+    }
+
+    function setCommentLikesCount(postId, commentId, likesCount) {
+      const comments = getCommentsForPost(postId).map(comment =>
+        comment.id === commentId ? { ...comment, likesCount } : comment
+      );
+      uiState.commentsByPost[postId] = Object.assign(comments, { __live: true });
+    }
+
+    function subscribePostLikes(postId) {
+      if (uiState.postLikeUnsubscribers[postId]) return;
+      const likesRef = collection(db, 'posts', postId, 'likes');
+      uiState.postLikeUnsubscribers[postId] = onSnapshot(likesRef, (snapshot) => {
+        setPostLikesCount(postId, snapshot.size);
+        render();
+      }, (error) => {
+        console.error(error);
+      });
+    }
+
+    function subscribeCommentLikes(postId, commentId) {
+      const likeKey = getCommentLikeKey(postId, commentId);
+      if (uiState.commentLikeUnsubscribers[likeKey]) return;
+      const likesRef = collection(db, 'posts', postId, 'comments', commentId, 'likes');
+      uiState.commentLikeUnsubscribers[likeKey] = onSnapshot(likesRef, (snapshot) => {
+        setCommentLikesCount(postId, commentId, snapshot.size);
+        render();
+      }, (error) => {
+        console.error(error);
+      });
+    }
+
     function subscribePosts() {
       uiState.loading = true;
       const postsRef = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
       const unsubscribe = onSnapshot(postsRef, async (snapshot) => {
         uiState.posts = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        uiState.posts.forEach(post => subscribePostLikes(post.id));
         await Promise.all(uiState.posts.map(post => subscribeComments(post.id)));
         await refreshAllLikeStates();
         uiState.loading = false;
@@ -949,6 +988,7 @@
       const unsubscribe = onSnapshot(commentsRef, async (snapshot) => {
         const comments = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
         uiState.commentsByPost[postId] = Object.assign(comments, { __live: true });
+        comments.forEach(comment => subscribeCommentLikes(postId, comment.id));
         await refreshAllLikeStates();
         render();
       }, (error) => {
@@ -1140,17 +1180,14 @@
       }
       const likeRef = doc(db, 'posts', postId, 'likes', currentUser.uid);
       const likeSnap = await getDoc(likeRef);
-      const postRef = doc(db, 'posts', postId);
       if (likeSnap.exists()) {
         await deleteDoc(likeRef);
-        await updateDoc(postRef, { likesCount: increment(-1) });
         uiState.postLikes.delete(postId);
       } else {
         await setDoc(likeRef, {
           uid: currentUser.uid,
           createdAt: serverTimestamp()
         });
-        await updateDoc(postRef, { likesCount: increment(1) });
         uiState.postLikes.add(postId);
       }
       render();
@@ -1163,19 +1200,16 @@
         return;
       }
       const likeRef = doc(db, 'posts', postId, 'comments', commentId, 'likes', currentUser.uid);
-      const commentRef = doc(db, 'posts', postId, 'comments', commentId);
       const likeSnap = await getDoc(likeRef);
       const commentLikeKey = getCommentLikeKey(postId, commentId);
       if (likeSnap.exists()) {
         await deleteDoc(likeRef);
-        await updateDoc(commentRef, { likesCount: increment(-1) });
         uiState.commentLikes.delete(commentLikeKey);
       } else {
         await setDoc(likeRef, {
           uid: currentUser.uid,
           createdAt: serverTimestamp()
         });
-        await updateDoc(commentRef, { likesCount: increment(1) });
         uiState.commentLikes.add(commentLikeKey);
       }
       render();
@@ -1638,5 +1672,6 @@
   </script>
 </body>
 </html>
+
 
 
